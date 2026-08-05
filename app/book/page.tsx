@@ -50,7 +50,7 @@ export default function BookPage() {
         .from('appointments')
         .select('appointment_date, services(duration_minutes)')
         .gte('appointment_date', now)
-        .neq('status', 'annulé'); // On ignore les annulés
+        .neq('status', 'annulé');
 
       if (appts) setAllAppointments(appts);
       
@@ -60,11 +60,11 @@ export default function BookPage() {
     fetchData();
   }, [router]);
 
-  // Générer la liste des créneaux (de 09:00 à 18:00 toutes les 15 mins)
-  const timeSlots = [];
+  // Générer la liste des créneaux (typée explicitement en string[])
+  const timeSlots: string[] = [];
   for (let h = 9; h <= 18; h++) {
     ['00', '15', '30', '45'].forEach(m => {
-      if (h === 18 && m !== '00') return; // On s'arrête à 18h pile
+      if (h === 18 && m !== '00') return;
       timeSlots.push(`${h.toString().padStart(2, '0')}:${m}`);
     });
   }
@@ -72,7 +72,6 @@ export default function BookPage() {
   // Transformer les rendez-vous existants en "blocs de temps indisponibles"
   const bookedBlocks = allAppointments.map(appt => {
     const start = new Date(appt.appointment_date);
-    // Si c'est un créneau bloqué manuellement sans service, on bloque par défaut 30min
     const duration = appt.services?.duration_minutes || 30; 
     const end = new Date(start.getTime() + duration * 60000);
     return { start, end };
@@ -85,17 +84,12 @@ export default function BookPage() {
     const [year, month, day] = date.split('-').map(Number);
     const [h, m] = timeStr.split(':').map(Number);
     
-    // Date de début du créneau potentiel (en heure locale)
     const slotStart = new Date(year, month - 1, day, h, m, 0, 0);
-    // Date de fin du créneau potentiel
     const slotEnd = new Date(slotStart.getTime() + selectedService.duration_minutes * 60000);
 
-    // Ne pas autoriser la réservation dans le passé si c'est aujourd'hui
     if (slotStart <= new Date()) return false;
 
-    // Vérifier s'il y a un conflit avec un bloc existant
     const hasConflict = bookedBlocks.some(block => {
-      // Il y a conflit si le créneau commence avant la fin d'un rdv ET finit après le début de ce rdv
       return (slotStart < block.end && slotEnd > block.start);
     });
 
@@ -118,7 +112,6 @@ export default function BookPage() {
     const [year, month, day] = date.split('-').map(Number);
     const [h, m] = time.split(':').map(Number);
     
-    // Conversion propre au format ISO (UTC) pour la base de données
     const appointmentDateTime = new Date(year, month - 1, day, h, m, 0, 0).toISOString();
 
     const { error: insertError } = await supabase.from('appointments').insert({
@@ -237,13 +230,12 @@ export default function BookPage() {
                   type="date"
                   required
                   value={date}
-                  min={new Date().toISOString().split('T')[0]} // Interdit le passé
+                  min={new Date().toISOString().split('T')[0]}
                   onChange={(e) => { setDate(e.target.value); setTime(''); }}
                   className="w-full px-4 py-3 text-sm font-medium text-gray-700 bg-white border border-gray-100 rounded-2xl shadow-sm focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30 transition-all cursor-pointer"
                 />
               </div>
 
-              {/* Affichage des créneaux si une date est choisie */}
               {date && (
                 <div className="grid grid-cols-4 gap-2 mt-4">
                   {timeSlots.map(timeStr => {
