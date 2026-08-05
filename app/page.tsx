@@ -36,15 +36,14 @@ export default function Home() {
       {/* Effet de lumière douce en arrière-plan (Glow) */}
       <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[150%] max-w-[600px] h-[400px] bg-[#D4AF37]/10 blur-[80px] rounded-full pointer-events-none"></div>
 
-      {/* En-tête / Logo */}
-      <div className="w-full max-w-md text-center mt-12 mb-10 relative z-10 px-4">
-        <h1 className="text-4xl md:text-5xl font-light tracking-[0.2em] uppercase text-gray-900 mb-2">
-          L'instant
-        </h1>
-        <h2 className="text-3xl md:text-4xl font-serif italic text-[#D4AF37] mb-4">
-          by M.
-        </h2>
-        <div className="flex items-center justify-center gap-3">
+      {/* En-tête / Logo Intégré */}
+      <div className="w-full max-w-md flex flex-col items-center text-center mt-8 mb-10 relative z-10 px-4">
+        <img 
+          src="/logo.png" 
+          alt="Logo L'instant by M." 
+          className="w-56 md:w-64 h-auto mix-blend-multiply" 
+        />
+        <div className="flex items-center justify-center gap-3 mt-4">
           <div className="h-[1px] w-8 bg-[#D4AF37]/40"></div>
           <p className="text-xs text-gray-500 tracking-[0.15em] uppercase">
             Extensions de cils
