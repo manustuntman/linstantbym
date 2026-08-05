@@ -69,79 +69,81 @@ export default function BookPage() {
   };
 
   return (
-    <div className="max-w-md mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-zinc-900 mb-2">Réserver une pose</h1>
-      <p className="text-xs text-zinc-500 mb-6">Choisis ta prestation et ton créneau idéal.</p>
+    <main className="min-h-screen bg-[#FDFBF7] text-black px-4 py-8 pb-28 flex flex-col items-center">
+      <div className="w-full max-w-md">
+        <h1 className="text-2xl font-light tracking-widest uppercase mb-1">Réserver</h1>
+        <p className="text-xs text-gray-500 mb-6 tracking-wide">Choisis ta prestation et ton créneau idéal.</p>
 
-      {error && (
-        <div className="mb-4 p-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl">
-          {error}
-        </div>
-      )}
-
-      <form onSubmit={handleBooking} className="space-y-6">
-        <div>
-          <label className="block text-xs font-medium text-zinc-700 mb-2">1. Choisis ta prestation</label>
-          <div className="space-y-2">
-            {services.map((service) => (
-              <div
-                key={service.id}
-                onClick={() => setSelectedService(service)}
-                className={`p-4 rounded-2xl border cursor-pointer transition-all ${
-                  selectedService?.id === service.id
-                    ? 'border-amber-500 bg-amber-50/50 shadow-sm'
-                    : 'border-zinc-200 bg-white hover:border-zinc-300'
-                }`}
-              >
-                <div className="flex justify-between items-start">
-                  <h3 className="text-sm font-semibold text-zinc-900">{service.title}</h3>
-                  <span className="text-sm font-bold text-amber-600">{service.price} €</span>
-                </div>
-                <p className="text-xs text-zinc-500 mt-1">{service.description}</p>
-                <span className="inline-block mt-2 px-2 py-0.5 text-[10px] font-medium bg-zinc-100 text-zinc-600 rounded-md">
-                  {service.duration_minutes} min
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {selectedService && (
-          <div className="space-y-4 pt-4 border-t border-zinc-100 animate-fadeIn">
-            <label className="block text-xs font-medium text-zinc-700">2. Choisis la date et l'heure</label>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] text-zinc-400 mb-1">Date</label>
-                <input
-                  type="date"
-                  required
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-white border border-zinc-200 rounded-xl focus:outline-none focus:border-amber-500"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] text-zinc-400 mb-1">Heure</label>
-                <input
-                  type="time"
-                  required
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-white border border-zinc-200 rounded-xl focus:outline-none focus:border-amber-500"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 mt-4 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-all shadow-md shadow-amber-500/20"
-            >
-              {loading ? 'Validation en cours...' : 'Confirmer le rendez-vous'}
-            </button>
+        {error && (
+          <div className="mb-4 p-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl">
+            {error}
           </div>
         )}
-      </form>
-    </div>
+
+        <form onSubmit={handleBooking} className="space-y-6">
+          <div>
+            <label className="block text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">1. Ta prestation</label>
+            <div className="space-y-4">
+              {services.map((service) => (
+                <div
+                  key={service.id}
+                  onClick={() => setSelectedService(service)}
+                  className={`p-5 rounded-2xl shadow-sm border transition-all cursor-pointer ${
+                    selectedService?.id === service.id
+                      ? 'border-[#D4AF37] bg-[#FDF8ED]'
+                      : 'border-gray-100 bg-white hover:border-gray-200'
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+                    <h4 className="font-medium text-gray-800">{service.title}</h4>
+                    <span className="text-lg font-semibold text-gray-900">{service.price} €</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{service.description}</p>
+                  <span className="inline-block mt-2 text-xs font-medium text-[#D4AF37] bg-[#FDF8ED] px-2.5 py-1 rounded-full">
+                    {service.duration_minutes} min
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {selectedService && (
+            <div className="space-y-4 pt-6 mt-6 border-t border-gray-200 animate-fadeIn">
+              <label className="block text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">2. Date et heure</label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="w-full px-4 py-3 text-sm bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#D4AF37]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Heure</label>
+                  <input
+                    type="time"
+                    required
+                    value={time}
+                    onChange={(e) => setTime(e.target.value)}
+                    className="w-full px-4 py-3 text-sm bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#D4AF37]"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-[#D4AF37] text-white font-medium py-4 px-6 mt-4 rounded-2xl shadow-md hover:bg-[#c29e31] transition duration-200 text-center tracking-wide"
+              >
+                {loading ? 'Validation en cours...' : 'CONFIRMER LE RENDEZ-VOUS'}
+              </button>
+            </div>
+          )}
+        </form>
+      </div>
+    </main>
   );
 }
