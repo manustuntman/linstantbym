@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
 
 type Service = {
   id: string
@@ -30,7 +31,7 @@ export default function Home() {
   }, [])
 
   return (
-    <main className="min-h-screen bg-[#FDFBF7] text-black p-6 flex flex-col items-center">
+    <main className="min-h-screen bg-[#FDFBF7] text-black p-6 flex flex-col items-center pb-28">
       <div className="w-full max-w-md text-center my-6">
         <h1 className="text-3xl font-light tracking-widest uppercase mb-1">L'instant</h1>
         <h2 className="text-xl font-normal italic text-[#D4AF37]">by M.</h2>
@@ -38,9 +39,12 @@ export default function Home() {
       </div>
 
       <div className="w-full max-w-md my-6">
-        <button className="w-full bg-[#D4AF37] text-white font-medium py-4 px-6 rounded-2xl shadow-md hover:bg-[#c29e31] transition duration-200 text-center tracking-wide">
+        <Link 
+          href="/book" 
+          className="block w-full bg-[#D4AF37] text-white font-medium py-4 px-6 rounded-2xl shadow-md hover:bg-[#c29e31] transition duration-200 text-center tracking-wide"
+        >
           PRENDRE RENDEZ-VOUS
-        </button>
+        </Link>
       </div>
 
       <div className="w-full max-w-md mt-4">
