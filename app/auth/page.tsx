@@ -1,155 +1,79 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
+type Service = {
+  id: string
+  title: string
+  description: string
+  price: number
+  duration_minutes: number
+}
 
-export default function AuthPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
+export default function Home() {
+  const [services, setServices] = useState<Service[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    if (isSignUp) {
-      // 1. Inscription avec le nom et le téléphone stockés dans les métadonnées
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { 
-            full_name: fullName,
-            phone: phone
-          },
-        },
-      });
-
+  useEffect(() => {
+    async function fetchServices() {
+      const { data, error } = await supabase.from('services').select('*')
       if (error) {
-        setError(error.message);
+        console.error('Erreur lors du chargement des services:', error)
       } else {
-        // Sécurité supplémentaire : insertion directe dans profiles si le trigger a un délai
-        if (data.user) {
-          await supabase.from('profiles').upsert({
-            id: data.user.id,
-            full_name: fullName,
-            phone: phone,
-          });
-        }
-        alert('Compte créé avec succès ! Tu peux te connecter.');
-        setIsSignUp(false);
+        setServices(data || [])
       }
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) {
-        setError(error.message);
-      } else {
-        router.push('/profile');
-        router.refresh();
-      }
+      setLoading(false)
     }
-    setLoading(false);
-  };
+
+    fetchServices()
+  }, [])
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
-      <div className="w-full max-w-md p-8 bg-white border border-amber-100 rounded-3xl shadow-xl">
-        <h1 className="text-2xl font-bold text-center text-zinc-900 mb-2">
-          {isSignUp ? 'Créer un compte' : 'Connexion'}
-        </h1>
-        <p className="text-xs text-center text-zinc-500 mb-6">
-          {isSignUp ? "Rejoins L'Instant by M. pour réserver tes poses" : 'Heureuse de te revoir !'}
-        </p>
+    <main className="min-h-screen bg-[#FDFBF7] text-black p-6 flex flex-col items-center pb-28">
+      <div className="w-full max-w-md text-center my-6">
+        <h1 className="text-3xl font-light tracking-widest uppercase mb-1">L'instant</h1>
+        <h2 className="text-xl font-normal italic text-[#D4AF37]">by M.</h2>
+        <p className="text-xs text-gray-500 mt-2 tracking-wide">Parenthèse beauté & extensions de cils</p>
+      </div>
 
-        {error && (
-          <div className="mb-4 p-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl">
-            {error}
+      <div className="w-full max-w-md my-6">
+        <Link 
+          href="/book" 
+          className="block w-full bg-[#D4AF37] text-white font-medium py-4 px-6 rounded-2xl shadow-md hover:bg-[#c29e31] transition duration-200 text-center tracking-wide"
+        >
+          PRENDRE RENDEZ-VOUS
+        </Link>
+      </div>
+
+      <div className="w-full max-w-md mt-4">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Nos Prestations</h3>
+        
+        {loading ? (
+          <p className="text-center text-gray-400 py-6">Chargement des prestations...</p>
+        ) : (
+          <div className="space-y-4">
+            {services.map((service) => (
+              <div 
+                key={service.id} 
+                className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center"
+              >
+                <div>
+                  <h4 className="font-medium text-gray-800">{service.title}</h4>
+                  <p className="text-xs text-gray-500 mt-1">{service.description}</p>
+                  <span className="inline-block mt-2 text-xs font-medium text-[#D4AF37] bg-[#FDF8ED] px-2.5 py-1 rounded-full">
+                    {service.duration_minutes} min
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-lg font-semibold text-gray-900">{service.price} €</span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
-
-        <form onSubmit={handleAuth} className="space-y-4">
-          {isSignUp && (
-            <>
-              <div>
-                <label className="block text-xs font-medium text-zinc-700 mb-1">Nom et Prénom</label>
-                <input
-                  type="text"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full px-4 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-amber-500"
-                  placeholder="Marie Dupont"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-zinc-700 mb-1">Numéro de téléphone</label>
-                <input
-                  type="tel"
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full px-4 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-amber-500"
-                  placeholder="06 12 34 56 78"
-                />
-              </div>
-            </>
-          )}
-          <div>
-            <label className="block text-xs font-medium text-zinc-700 mb-1">Email</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-amber-500"
-              placeholder="mon@email.com"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-zinc-700 mb-1">Mot de passe</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-amber-500"
-              placeholder="••••••••"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 mt-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-all shadow-md shadow-amber-500/20"
-          >
-            {loading ? 'Patientez...' : isSignUp ? "S'inscrire" : 'Se connecter'}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="text-xs text-amber-600 hover:underline font-medium"
-          >
-            {isSignUp ? 'Déjà un compte ? Connecte-toi' : "Pas encore de compte ? S'inscrire"}
-          </button>
-        </div>
       </div>
-    </div>
-  );
+    </main>
+  )
 }
