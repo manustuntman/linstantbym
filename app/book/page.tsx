@@ -20,7 +20,8 @@ type Service = {
 
 export default function BookPage() {
   const [services, setServices] = useState<Service[]>([]);
-  const [activeTab, setActiveTab] = useState<'Pose complète' | 'Remplissage'>('Pose complète');
+  const [allAppointments, setAllAppointments] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState('Pose complète');
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
@@ -29,30 +30,82 @@ export default function BookPage() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
+  const TABS = ['Pose complète', 'Remplissage', 'Dépose'];
+
   useEffect(() => {
-    async function checkAuthAndFetchServices() {
+    async function fetchData() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         router.push('/auth');
         return;
       }
 
-      const { data, error } = await supabase.from('services').select('*');
-      if (error) {
-        console.error(error);
-      } else if (data) {
-        setServices(data);
-      }
+      // Récupérer les services
+      const { data: srvs } = await supabase.from('services').select('*');
+      if (srvs) setServices(srvs);
+
+      // Récupérer UNIQUEMENT les rendez-vous futurs pour calculer les disponibilités
+      const now = new Date().toISOString();
+      const { data: appts } = await supabase
+        .from('appointments')
+        .select('appointment_date, services(duration_minutes)')
+        .gte('appointment_date', now)
+        .neq('status', 'annulé'); // On ignore les annulés
+
+      if (appts) setAllAppointments(appts);
+      
       setLoadingServices(false);
     }
 
-    checkAuthAndFetchServices();
+    fetchData();
   }, [router]);
+
+  // Générer la liste des créneaux (de 09:00 à 18:00 toutes les 15 mins)
+  const timeSlots = [];
+  for (let h = 9; h <= 18; h++) {
+    ['00', '15', '30', '45'].forEach(m => {
+      if (h === 18 && m !== '00') return; // On s'arrête à 18h pile
+      timeSlots.push(`${h.toString().padStart(2, '0')}:${m}`);
+    });
+  }
+
+  // Transformer les rendez-vous existants en "blocs de temps indisponibles"
+  const bookedBlocks = allAppointments.map(appt => {
+    const start = new Date(appt.appointment_date);
+    // Si c'est un créneau bloqué manuellement sans service, on bloque par défaut 30min
+    const duration = appt.services?.duration_minutes || 30; 
+    const end = new Date(start.getTime() + duration * 60000);
+    return { start, end };
+  });
+
+  // Fonction pour vérifier si un créneau de temps est disponible
+  const isSlotAvailable = (timeStr: string) => {
+    if (!date || !selectedService) return false;
+    
+    const [year, month, day] = date.split('-').map(Number);
+    const [h, m] = timeStr.split(':').map(Number);
+    
+    // Date de début du créneau potentiel (en heure locale)
+    const slotStart = new Date(year, month - 1, day, h, m, 0, 0);
+    // Date de fin du créneau potentiel
+    const slotEnd = new Date(slotStart.getTime() + selectedService.duration_minutes * 60000);
+
+    // Ne pas autoriser la réservation dans le passé si c'est aujourd'hui
+    if (slotStart <= new Date()) return false;
+
+    // Vérifier s'il y a un conflit avec un bloc existant
+    const hasConflict = bookedBlocks.some(block => {
+      // Il y a conflit si le créneau commence avant la fin d'un rdv ET finit après le début de ce rdv
+      return (slotStart < block.end && slotEnd > block.start);
+    });
+
+    return !hasConflict;
+  };
 
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedService || !date || !time) {
-      setError('Veuillez sélectionner une prestation, une date et une heure.');
+      setError('Veuillez sélectionner un créneau disponible.');
       return;
     }
 
@@ -60,17 +113,19 @@ export default function BookPage() {
     setError(null);
 
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      router.push('/auth');
-      return;
-    }
+    if (!session) return;
 
-    const appointmentDateTime = `${date}T${time}:00Z`;
+    const [year, month, day] = date.split('-').map(Number);
+    const [h, m] = time.split(':').map(Number);
+    
+    // Conversion propre au format ISO (UTC) pour la base de données
+    const appointmentDateTime = new Date(year, month - 1, day, h, m, 0, 0).toISOString();
 
     const { error: insertError } = await supabase.from('appointments').insert({
       user_id: session.user.id,
       service_id: selectedService.id,
       appointment_date: appointmentDateTime,
+      status: 'confirmé'
     });
 
     if (insertError) {
@@ -82,24 +137,19 @@ export default function BookPage() {
     }
   };
 
-  // Filtrer les services en fonction de l'onglet actif
   const filteredServices = services.filter((s) => s.category === activeTab);
 
   return (
     <main className="min-h-screen bg-[#FDFBF7] text-gray-900 px-4 pt-10 pb-32 flex flex-col items-center relative overflow-hidden">
-      
-      {/* Effet de lumière douce (Glow) */}
       <div className="absolute top-[-5%] left-1/2 -translate-x-1/2 w-[150%] max-w-[600px] h-[400px] bg-[#D4AF37]/15 blur-[90px] rounded-full pointer-events-none"></div>
 
       <div className="w-full max-w-md relative z-10 text-center mb-8">
-        <h1 className="text-3xl md:text-4xl font-light tracking-[0.15em] uppercase text-gray-900 mb-2">
+        <h1 className="text-3xl font-light tracking-[0.15em] uppercase text-gray-900 mb-2">
           Réservation
         </h1>
         <div className="flex items-center justify-center gap-3">
           <div className="h-[1px] w-6 bg-[#D4AF37]/40"></div>
-          <p className="text-xs text-gray-500 tracking-[0.15em] uppercase">
-            Ton moment à toi
-          </p>
+          <p className="text-[10px] text-gray-500 tracking-[0.15em] uppercase">Ton moment à toi</p>
           <div className="h-[1px] w-6 bg-[#D4AF37]/40"></div>
         </div>
       </div>
@@ -111,46 +161,37 @@ export default function BookPage() {
           </div>
         )}
 
-        {/* Système d'onglets (Toggle) */}
-        <div className="flex bg-white/70 backdrop-blur-md p-1.5 rounded-2xl shadow-[0_4px_15px_rgba(0,0,0,0.03)] border border-[#D4AF37]/20 mb-8 relative">
-          <button
-            onClick={() => {
-              setActiveTab('Pose complète');
-              setSelectedService(null); // On réinitialise le choix si on change d'onglet
-            }}
-            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider rounded-xl transition-all duration-300 ${
-              activeTab === 'Pose complète'
-                ? 'bg-[#D4AF37] text-white shadow-md'
-                : 'text-gray-400 hover:text-[#D4AF37]'
-            }`}
-          >
-            Première Pose
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab('Remplissage');
-              setSelectedService(null);
-            }}
-            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider rounded-xl transition-all duration-300 ${
-              activeTab === 'Remplissage'
-                ? 'bg-[#D4AF37] text-white shadow-md'
-                : 'text-gray-400 hover:text-[#D4AF37]'
-            }`}
-          >
-            Remplissage
-          </button>
+        {/* Système d'onglets */}
+        <div className="flex gap-2 bg-white/70 backdrop-blur-md p-1.5 rounded-2xl shadow-sm border border-[#D4AF37]/20 mb-8 overflow-x-auto hide-scrollbar">
+          {TABS.map(tab => (
+            <button
+              key={tab}
+              onClick={() => {
+                setActiveTab(tab);
+                setSelectedService(null);
+                setTime('');
+              }}
+              className={`flex-1 py-2.5 px-3 text-[10px] font-semibold uppercase tracking-wider rounded-xl transition-all whitespace-nowrap ${
+                activeTab === tab
+                  ? 'bg-[#D4AF37] text-white shadow-md'
+                  : 'text-gray-400 hover:text-[#D4AF37]'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
 
         <form onSubmit={handleBooking} className="space-y-8">
           
-          {/* Liste des prestations filtrées */}
+          {/* Liste des prestations */}
           <div>
             <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-4 pl-1">
-              1. Choisis ta prestation
+              1. Prestation
             </h3>
             
             {loadingServices ? (
-              <div className="flex justify-center py-10">
+              <div className="flex justify-center py-6">
                 <div className="w-6 h-6 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin"></div>
               </div>
             ) : (
@@ -159,40 +200,24 @@ export default function BookPage() {
                   <div
                     key={service.id}
                     onClick={() => setSelectedService(service)}
-                    className={`group relative bg-white p-5 rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] transition-all duration-300 cursor-pointer overflow-hidden transform hover:-translate-y-0.5 border ${
+                    className={`group relative bg-white p-4 rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] transition-all duration-300 cursor-pointer overflow-hidden border ${
                       selectedService?.id === service.id
                         ? 'border-[#D4AF37] ring-1 ring-[#D4AF37]/30 bg-[#FDF8ED]/50'
-                        : 'border-gray-100 hover:border-[#D4AF37]/30 hover:shadow-[0_10px_30px_rgba(212,175,55,0.08)]'
+                        : 'border-gray-100 hover:border-[#D4AF37]/30'
                     }`}
                   >
-                    {/* Liseré doré de sélection */}
-                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 transition-all duration-300 ${
-                      selectedService?.id === service.id ? 'bg-[#D4AF37] opacity-100' : 'bg-[#D4AF37] opacity-0 group-hover:opacity-50'
-                    }`}></div>
-
-                    <div className="flex justify-between items-start pl-2">
-                      <div className="pr-3">
+                    <div className="flex justify-between items-start pl-1">
+                      <div>
                         <h4 className={`text-sm font-semibold transition-colors duration-300 ${
                           selectedService?.id === service.id ? 'text-[#D4AF37]' : 'text-gray-900 group-hover:text-[#D4AF37]'
                         }`}>
                           {service.title}
                         </h4>
-                        <p className="text-[11px] text-gray-500 mt-1.5 leading-relaxed">
-                          {service.description}
-                        </p>
+                        <span className="text-[10px] font-medium text-gray-400 mt-1 flex items-center">
+                          ⏱ {service.duration_minutes} MIN
+                        </span>
                       </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-base font-light text-gray-900">{service.price} €</span>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-gray-50 flex items-center pl-2">
-                      <svg className="w-3.5 h-3.5 text-[#D4AF37] mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                      </svg>
-                      <span className="text-[10px] font-medium text-gray-400 tracking-wide">
-                        {service.duration_minutes} MIN
-                      </span>
+                      <span className="text-base font-light text-gray-900">{service.price} €</span>
                     </div>
                   </div>
                 ))}
@@ -200,51 +225,60 @@ export default function BookPage() {
             )}
           </div>
 
-          {/* Section Date et Heure (apparaît de façon fluide quand une prestation est cliquée) */}
+          {/* Grille Date et Heure Dynamique */}
           {selectedService && (
-            <div className="pt-6 border-t border-[#D4AF37]/20 animate-in slide-in-from-bottom-4 fade-in duration-500">
+            <div className="pt-6 border-t border-[#D4AF37]/20 animate-in fade-in duration-500">
               <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-4 pl-1">
-                2. Ton Créneau Idéal
+                2. Ton Créneau
               </h3>
               
-              <div className="grid grid-cols-2 gap-4">
-                <div className="relative group">
-                  <label className="block text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Date</label>
-                  <input
-                    type="date"
-                    required
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="w-full px-4 py-3.5 text-sm font-medium text-gray-700 bg-white border border-gray-100 rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30 transition-all cursor-pointer"
-                  />
-                </div>
-                <div className="relative group">
-                  <label className="block text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Heure</label>
-                  <input
-                    type="time"
-                    required
-                    value={time}
-                    onChange={(e) => setTime(e.target.value)}
-                    className="w-full px-4 py-3.5 text-sm font-medium text-gray-700 bg-white border border-gray-100 rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30 transition-all cursor-pointer"
-                  />
-                </div>
+              <div className="mb-4">
+                <input
+                  type="date"
+                  required
+                  value={date}
+                  min={new Date().toISOString().split('T')[0]} // Interdit le passé
+                  onChange={(e) => { setDate(e.target.value); setTime(''); }}
+                  className="w-full px-4 py-3 text-sm font-medium text-gray-700 bg-white border border-gray-100 rounded-2xl shadow-sm focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30 transition-all cursor-pointer"
+                />
               </div>
 
-              {/* Bouton de confirmation Premium */}
+              {/* Affichage des créneaux si une date est choisie */}
+              {date && (
+                <div className="grid grid-cols-4 gap-2 mt-4">
+                  {timeSlots.map(timeStr => {
+                    const available = isSlotAvailable(timeStr);
+                    const isSelected = time === timeStr;
+
+                    return (
+                      <button
+                        key={timeStr}
+                        type="button"
+                        disabled={!available}
+                        onClick={() => setTime(timeStr)}
+                        className={`py-2 text-[11px] font-semibold rounded-xl transition-all border ${
+                          isSelected 
+                            ? 'bg-[#D4AF37] text-white border-[#D4AF37] shadow-md transform scale-105' 
+                            : available 
+                              ? 'bg-white text-gray-700 border-gray-200 hover:border-[#D4AF37] hover:text-[#D4AF37]' 
+                              : 'bg-gray-100 text-gray-300 border-transparent cursor-not-allowed opacity-60'
+                        }`}
+                      >
+                        {timeStr}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
               <button
                 type="submit"
-                disabled={loadingSubmit}
-                className="group relative flex items-center justify-center w-full bg-gradient-to-r from-[#c29e31] via-[#D4AF37] to-[#c29e31] text-white font-medium py-4.5 px-6 mt-8 rounded-2xl shadow-[0_8px_25px_rgba(212,175,55,0.3)] hover:shadow-[0_12px_35px_rgba(212,175,55,0.4)] transition-all duration-300 transform hover:-translate-y-1 overflow-hidden disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
+                disabled={loadingSubmit || !time}
+                className="group relative flex items-center justify-center w-full bg-gradient-to-r from-[#c29e31] via-[#D4AF37] to-[#c29e31] text-white font-medium py-4 px-6 mt-8 rounded-2xl shadow-lg transition-all duration-300 transform hover:-translate-y-1 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
                 <span className="tracking-[0.1em] text-xs uppercase relative z-10 py-1">
-                  {loadingSubmit ? 'Validation en cours...' : 'Confirmer ma réservation'}
+                  {loadingSubmit ? 'Validation...' : 'Confirmer le rendez-vous'}
                 </span>
-                {!loadingSubmit && (
-                  <svg className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                )}
               </button>
             </div>
           )}
