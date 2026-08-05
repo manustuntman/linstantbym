@@ -14,7 +14,8 @@ export default function BottomNav() {
 
   return (
     <div className="fixed bottom-6 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none">
-      <nav className="pointer-events-auto flex items-center justify-around w-full max-w-sm px-6 py-3 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl border border-white/20 dark:border-white/10 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.12)] transition-all">
+      {/* Ajout de classes pour forcer le flou et une meilleure transparence */}
+      <nav className="pointer-events-auto flex items-center justify-around w-full max-w-sm px-6 py-3 bg-white/30 dark:bg-zinc-900/30 backdrop-blur-[12px] border border-white/20 dark:border-white/10 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.12)] transition-all">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
 
@@ -25,7 +26,7 @@ export default function BottomNav() {
               className={`flex flex-col items-center justify-center space-y-1 transition-all duration-300 ${
                 isActive
                   ? 'text-amber-600 dark:text-amber-400 scale-105'
-                  : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                  : 'text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50'
               }`}
             >
               <span className="text-base">{item.icon}</span>
