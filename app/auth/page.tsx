@@ -1,12 +1,9 @@
-'votre client'; // Note : garde bien 'use client' en haut
-
 'use client';
 
 import { useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 
-// Initialisation du client Supabase (assure-toi d'avoir tes variables d'env configurées)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -16,6 +13,7 @@ export default function AuthPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,15 +25,32 @@ export default function AuthPage() {
     setError(null);
 
     if (isSignUp) {
-      const { error } = await supabase.auth.signUp({
+      // 1. Inscription avec le nom et le téléphone stockés dans les métadonnées
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { full_name: fullName },
+          data: { 
+            full_name: fullName,
+            phone: phone
+          },
         },
       });
-      if (error) setError(error.message);
-      else alert('Compte créé ! Tu peux te connecter.');
+
+      if (error) {
+        setError(error.message);
+      } else {
+        // Sécurité supplémentaire : insertion directe dans profiles si le trigger a un délai
+        if (data.user) {
+          await supabase.from('profiles').upsert({
+            id: data.user.id,
+            full_name: fullName,
+            phone: phone,
+          });
+        }
+        alert('Compte créé avec succès ! Tu peux te connecter.');
+        setIsSignUp(false);
+      }
     } else {
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -58,7 +73,7 @@ export default function AuthPage() {
           {isSignUp ? 'Créer un compte' : 'Connexion'}
         </h1>
         <p className="text-xs text-center text-zinc-500 mb-6">
-          {isSignUp ? 'Rejoins L\'Instant by M. pour réserver tes poses' : 'Heureuse de te revoir !'}
+          {isSignUp ? "Rejoins L'Instant by M. pour réserver tes poses" : 'Heureuse de te revoir !'}
         </p>
 
         {error && (
@@ -69,17 +84,30 @@ export default function AuthPage() {
 
         <form onSubmit={handleAuth} className="space-y-4">
           {isSignUp && (
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1">Nom et Prénom</label>
-              <input
-                type="text"
-                required
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="w-full px-4 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-amber-500"
-                placeholder="Marie Dupont"
-              />
-            </div>
+            <>
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 mb-1">Nom et Prénom</label>
+                <input
+                  type="text"
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full px-4 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-amber-500"
+                  placeholder="Marie Dupont"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 mb-1">Numéro de téléphone</label>
+                <input
+                  type="tel"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full px-4 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-amber-500"
+                  placeholder="06 12 34 56 78"
+                />
+              </div>
+            </>
           )}
           <div>
             <label className="block text-xs font-medium text-zinc-700 mb-1">Email</label>
